@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ПРОЗАХИСТ — Редактор цін</title>
+<style>
+  :root{
+    --bg:#15171b; --surface:#1c1f24; --surface-2:#242830; --border:#333941;
+    --text:#e9e7e1; --text-dim:#9aa0a8; --text-faint:#6b7078;
+    --accent:#9c1f2e; --accent-hover:#b8283a; --accent-soft:rgba(156,31,46,.16);
+    --ok:#3fa34d; --ok-soft:rgba(63,163,77,.15);
+    --warn:#d9484b; --warn-soft:rgba(217,72,75,.15);
+    --radius:4px;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --font: 'Segoe UI', 'Open Sans', Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:var(--font); font-size:14px;}
+  button, input{font-family:inherit; font-size:inherit; color:inherit;}
+
+  .topbar{display:flex; align-items:center; justify-content:space-between; padding:14px 24px; border-bottom:1px solid var(--border); background:var(--surface);}
+  .brand-mark{font-weight:700; font-size:18px;}
+  .brand-mark span{color:var(--accent);}
+  .brand-sub{color:var(--text-dim); font-size:13px; margin-left:10px;}
+  .conn-status{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim);}
+  .dot{width:8px; height:8px; border-radius:50%; background:var(--text-faint);}
+  .dot.ok{background:var(--ok);} .dot.err{background:var(--warn);}
+
+  .connect-bar{display:flex; gap:10px; align-items:center; padding:12px 24px; background:var(--surface-2); border-bottom:1px solid var(--border); flex-wrap:wrap;}
+  .connect-bar input{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:8px 9px; color:var(--text); width:340px;}
+  .repo-info{color:var(--text-dim); font-size:12.5px; margin-right:auto;}
+  .repo-info code{color:var(--text); font-family:var(--mono);}
+
+  .btn{border:1px solid var(--border); background:var(--surface-2); color:var(--text); padding:8px 14px; border-radius:var(--radius); cursor:pointer; white-space:nowrap;}
+  .btn:hover{border-color:var(--text-faint);}
+  .btn-accent{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .btn-accent:hover{background:var(--accent-hover); border-color:var(--accent-hover);}
+  .btn-sm{padding:5px 10px; font-size:12.5px;}
+  .btn:disabled{opacity:.5; cursor:not-allowed;}
+
+  .layout{display:grid; grid-template-columns:240px 1fr; min-height:calc(100vh - 110px);}
+  .sidebar{border-right:1px solid var(--border); padding:16px 12px; background:var(--surface);}
+  .cat-item{padding:9px 10px; border-radius:var(--radius); cursor:pointer; color:var(--text-dim); margin-bottom:2px; font-size:13.5px;}
+  .cat-item:hover{background:var(--surface-2); color:var(--text);}
+  .cat-item.active{background:var(--accent-soft); color:var(--text); border-left:2px solid var(--accent); padding-left:8px;}
+
+  .main{padding:20px 24px;}
+  .main-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;}
+  .main-title{font-size:16px; font-weight:600;}
+
+  table{width:100%; border-collapse:collapse;}
+  thead th{text-align:left; font-size:11.5px; color:var(--text-faint); font-weight:600; padding:8px 10px; border-bottom:1px solid var(--border);}
+  tbody td{padding:10px; border-bottom:1px solid var(--border); vertical-align:middle;}
+  tbody tr:hover{background:var(--surface);}
+  .price-old{font-family:var(--mono); color:var(--text-dim);}
+  .price-input{width:110px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:6px 8px; font-family:var(--mono);}
+  .price-input:focus{outline:none; border-color:var(--accent);}
+  .price-input.dirty{border-color:var(--accent);}
+  .path{font-family:var(--mono); font-size:11.5px; color:var(--text-faint);}
+  .status-cell{font-size:12px;}
+  .status-ok{color:var(--ok);}
+  .status-err{color:var(--warn);}
+  .status-pending{color:var(--text-dim);}
+
+  .empty-state, .lockscreen, .loading{text-align:center; padding:60px 20px; color:var(--text-dim);}
+  .empty-state h2, .lockscreen h2{color:var(--text); font-weight:500; margin-bottom:8px;}
+
+  .log-panel{margin-top:24px; padding-top:14px; border-top:1px solid var(--border);}
+  .log-title{font-size:11.5px; color:var(--text-faint); margin-bottom:8px;}
+  .log-entry{font-size:12px; padding:6px 8px; border-radius:var(--radius); margin-bottom:6px; background:var(--surface); font-family:var(--mono);}
+  .log-entry.ok{color:var(--ok);} .log-entry.err{color:var(--warn);} .log-entry.info{color:var(--text-dim);}
+
+  .toast{position:fixed; bottom:20px; right:20px; background:var(--surface-2); border:1px solid var(--border); padding:10px 16px; border-radius:var(--radius); font-size:13px; z-index:80; max-width:380px; opacity:0; transform:translateY(8px); transition:all .2s ease; pointer-events:none;}
+  .toast.show{opacity:1; transform:translateY(0);}
+  .toast.err{border-color:var(--warn); color:var(--warn);}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div><span class="brand-mark">ПРО<span>ЗАХИСТ</span></span><span class="brand-sub">Редактор цін</span></div>
+  <div class="conn-status"><span class="dot" id="connDot"></span><span id="connText">Не підключено</span></div>
+</div>
+
+<div class="connect-bar">
+  <div class="repo-info">Репозиторій: <code>ProMontazh/prozakhyst.pp.ua</code> · гілка <code>main</code></div>
+  <input type="password" id="tokenInput" placeholder="Вставте GitHub token (github_pat_...)">
+  <button class="btn btn-accent" id="btnConnect">Підключитись</button>
+</div>
+
+<div id="lockscreen" class="lockscreen">
+  <h2>Підключіться до GitHub</h2>
+  <p>Вставте персональний токен вище і натисніть «Підключитись», щоб редагувати ціни.</p>
+</div>
+
+<div class="layout" id="mainLayout" style="display:none;">
+  <div class="sidebar" id="sidebar"></div>
+
+  <div class="main">
+    <div class="main-header">
+      <div class="main-title" id="categoryTitle">Оберіть категорію</div>
+      <button class="btn btn-accent" id="btnSaveAll" style="display:none;">Зберегти всі зміни</button>
+    </div>
+
+    <div id="loadingBlock" class="loading" style="display:none;">Завантаження товарів…</div>
+    <div id="emptyState" class="empty-state" style="display:none;"><h2>Оберіть категорію зліва</h2><p>Список товарів і цін завантажиться з відповідного файлу на сайті.</p></div>
+
+    <table id="productsTable" style="display:none;">
+      <thead><tr><th>Назва</th><th>Поточна ціна</th><th>Нова ціна</th><th>Файл</th><th>Статус</th><th></th></tr></thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <div class="log-panel">
+      <div class="log-title">Останні дії</div>
+      <div id="logList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const OWNER = 'ProMontazh';
+const REPO = 'prozakhyst.pp.ua';
+const BRANCH = 'main';
+const API = 'https://api.github.com';
+
+const CATEGORY_FILES = [
+  { label: 'Внутрішні камери', file: 'vnutrishni_kamery.html' },
+  { label: 'Зовнішні камери', file: 'zovnishni_kamery.html' },
+  { label: 'Зовнішні 4G камери', file: 'zovnishni_4G_kamery.html' },
+  { label: 'Комплекти сигналізації', file: 'komplekty_syhnalizaciyi.html' },
+  { label: 'Хаби, модулі', file: 'khuby.html' },
+  { label: 'Внутрішні датчики', file: 'vnutrishni_datchyky.html' },
+  { label: 'Зовнішні датчики', file: 'zovnishni_datchyky.html' },
+  { label: 'Керівні пристрої', file: 'prystroi_keruvannia.html' },
+  { label: 'Автоматизація', file: 'avtomatyzatsiia.html' },
+  { label: 'Захист від потопу', file: 'zakhyst_vid_potopu.html' },
+  { label: 'Пожежна безпека', file: 'pozhezhna_bezpeka.html' },
+  { label: 'Аксесуари', file: 'aksesuary.html' }
+];
+
+let token = null;
+let currentCategoryFile = null;
+let rows = [];
+
+const $ = (id) => document.getElementById(id);
+
+function showToast(msg, isErr){
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+function log(msg, type){
+  const el = document.createElement('div');
+  el.className = 'log-entry ' + (type || 'info');
+  el.textContent = msg;
+  const list = $('logList');
+  list.insertBefore(el, list.firstChild);
+  while(list.children.length > 15) list.removeChild(list.lastChild);
+}
+
+function b64encode(str){ return btoa(unescape(encodeURIComponent(str))); }
+function b64decode(str){ return decodeURIComponent(escape(atob(str))); }
+
+async function ghRequest(method, path, body){
+  return fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+    method,
+    headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+}
+
+async function ghRequestWithRetry(method, path, body, attempt){
+  attempt = attempt || 1;
+  const res = await ghRequest(method, path, body);
+  const isRateLimited = res.status === 429 || (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0');
+  if(isRateLimited && attempt < 4){
+    const retryAfter = res.headers.get('retry-after');
+    const wait = retryAfter ? Number(retryAfter) * 1000 : 1500 * attempt;
+    log(`GitHub обмежив частоту запитів — чекаємо ${Math.round(wait/1000)} с і пробуємо ще раз`, 'info');
+    await new Promise(r => setTimeout(r, wait));
+    return ghRequestWithRetry(method, path, body, attempt + 1);
+  }
+  return res;
+}
+
+async function ghGetFile(path){
+  const res = await ghRequestWithRetry('GET', `${path}?ref=${BRANCH}`);
+  if(res.status === 404) return null;
+  if(res.status === 401 || res.status === 403){
+    throw new Error('Токен недійсний або немає прав доступу до репозиторію — підключіться заново з новим токеном');
+  }
+  if(!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+  const data = await res.json();
+  return { content: b64decode(data.content.replace(/\n/g, '')), sha: data.sha };
+}
+
+async function ghPutFile(path, content, message, attempt){
+  attempt = attempt || 1;
+  const existing = await ghGetFile(path).catch(() => null);
+  const body = { message, content: b64encode(content), branch: BRANCH };
+  if(existing) body.sha = existing.sha;
+  const res = await ghRequestWithRetry('PUT', path, body);
+
+  if(!res.ok){
+    const err = await res.json().catch(() => ({}));
+    const errMsg = err.message || '';
+    const isShaConflict = res.status === 409 || (res.status === 422 && /does not match|sha/i.test(errMsg));
+    if(isShaConflict && attempt < 5){
+      // Sha застарів (хтось/щось встигло змінити файл між читанням і записом) — пробуємо ще раз зі свіжим sha
+      await new Promise(r => setTimeout(r, 500 * attempt));
+      return ghPutFile(path, content, message, attempt + 1);
+    }
+    throw new Error(errMsg || `PUT ${path} → ${res.status}`);
+  }
+  return res.json();
+}
+
+async function connect(){
+  token = $('tokenInput').value.trim();
+  if(!token){ showToast('Вставте токен', true); return; }
+  $('connText').textContent = 'Перевірка…';
+  try{
+    const res = await fetch(`${API}/repos/${OWNER}/${REPO}`, { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' } });
+    if(!res.ok) throw new Error(`Репозиторій недоступний (${res.status})`);
+    $('connDot').classList.add('ok');
+    $('connText').textContent = 'Підключено';
+    log('Підключення успішне', 'ok');
+    $('lockscreen').style.display = 'none';
+    $('mainLayout').style.display = 'grid';
+    renderSidebar();
+  }catch(e){
+    $('connDot').classList.add('err');
+    $('connText').textContent = 'Помилка підключення';
+    showToast(e.message, true);
+    log('Помилка підключення: ' + e.message, 'err');
+  }
+}
+
+function renderSidebar(){
+  const sb = $('sidebar');
+  sb.innerHTML = '';
+  CATEGORY_FILES.forEach(cat => {
+    const el = document.createElement('div');
+    el.className = 'cat-item';
+    el.textContent = cat.label;
+    el.dataset.file = cat.file;
+    el.addEventListener('click', () => {
+      document.querySelectorAll('.cat-item').forEach(x => x.classList.remove('active'));
+      el.classList.add('active');
+      loadCategory(cat);
+    });
+    sb.appendChild(el);
+  });
+}
+
+function parsePriceText(str){
+  // "2400.00 грн" / "2 400,00 грн" тощо → 2400.00
+  const cleaned = String(str || '').replace(/\s/g, '').replace(',', '.').match(/[\d.]+/);
+  return cleaned ? parseFloat(cleaned[0]) : NaN;
+}
+
+function parseArticles(html){
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const items = [...doc.querySelectorAll('.product-item')];
+  return items.map(item => {
+    const onclickAttr = item.getAttribute('onclick') || '';
+    const m = onclickAttr.match(/openProductDetails\('([^']+)'\)/);
+    if(!m) return null;
+
+    // Спершу пробуємо мікророзмітку itemprop (нові картки), інакше — звичайну верстку
+    const nameEl = item.querySelector('[itemprop="name"]') || item.querySelector('h3');
+    const priceEl = item.querySelector('[itemprop="price"]') || item.querySelector('.product-price');
+    if(!priceEl) return null;
+
+    const priceRaw = priceEl.getAttribute('content') || priceEl.textContent;
+    const price = parsePriceText(priceRaw);
+    if(!price || isNaN(price)) return null;
+
+    return {
+      name: nameEl ? nameEl.textContent.trim() : '(без назви)',
+      price,
+      path: m[1]
+    };
+  }).filter(Boolean);
+}
+
+async function loadCategory(cat){
+  currentCategoryFile = cat.file;
+  $('categoryTitle').textContent = cat.label;
+  $('emptyState').style.display = 'none';
+  $('productsTable').style.display = 'none';
+  $('btnSaveAll').style.display = 'none';
+  $('loadingBlock').style.display = 'block';
+
+  try{
+    const file = await ghGetFile(cat.file);
+    if(!file){
+      $('loadingBlock').style.display = 'none';
+      $('emptyState').style.display = 'block';
+      $('emptyState').innerHTML = `<h2>Файл ${cat.file} не знайдено</h2>`;
+      log(`Файл ${cat.file} не знайдено в репозиторії`, 'err');
+      return;
+    }
+    rows = parseArticles(file.content).map(r => ({ ...r, newPrice: r.price, status: '', saving: false }));
+    log(`Завантажено товарів з ${cat.file}: ${rows.length}`, 'ok');
+    renderTable();
+  }catch(e){
+    showToast('Помилка завантаження: ' + e.message, true);
+    log('Помилка завантаження: ' + e.message, 'err');
+  }finally{
+    $('loadingBlock').style.display = 'none';
+  }
+}
+
+function renderTable(){
+  if(rows.length === 0){
+    $('productsTable').style.display = 'none';
+    $('emptyState').style.display = 'block';
+    $('emptyState').innerHTML = '<h2>Товарів не знайдено у цьому файлі</h2>';
+    $('btnSaveAll').style.display = 'none';
+    return;
+  }
+  $('emptyState').style.display = 'none';
+  $('productsTable').style.display = 'table';
+  $('btnSaveAll').style.display = 'inline-block';
+
+  const tbody = $('tableBody');
+  tbody.innerHTML = '';
+  rows.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    const statusClass = r.status === 'ok' ? 'status-ok' : r.status === 'err' ? 'status-err' : 'status-pending';
+    const statusText = r.saving ? '⏳ Збереження…' : r.status === 'ok' ? '✓ Збережено' : r.status === 'err' ? '✗ Помилка' : '';
+    const statusTitle = r.status === 'err' && r.errorMsg ? escapeAttr(r.errorMsg) : '';
+    tr.innerHTML = `
+      <td>${r.name}</td>
+      <td class="price-old">${r.price.toLocaleString('uk-UA')} грн</td>
+      <td><input class="price-input" type="number" min="0" step="1" value="${r.newPrice}" data-idx="${i}" ${r.saving ? 'disabled' : ''}></td>
+      <td class="path">${r.path}</td>
+      <td class="status-cell ${statusClass}" title="${statusTitle}">${statusText}</td>
+      <td><button class="btn btn-sm" data-act="save" data-idx="${i}" ${r.saving ? 'disabled' : ''}>Зберегти</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function escapeAttr(str){ return String(str || '').replace(/"/g, '&quot;'); }
+
+function findContainerBounds(html, idx){
+  const artStart = html.lastIndexOf('<article', idx);
+  const divStart = html.lastIndexOf('<div', idx);
+  let tag, start;
+  if(artStart > divStart){ tag = 'article'; start = artStart; }
+  else { tag = 'div'; start = divStart; }
+  const closeTag = `</${tag}>`;
+  const end = html.indexOf(closeTag, idx);
+  if(start === -1 || end === -1) throw new Error('Не вдалося визначити межі блоку товару');
+  return { start, end: end + closeTag.length };
+}
+
+function patchCategoryPrice(html, path, newPrice){
+  const marker = `openProductDetails('${path}')`;
+  const idx = html.indexOf(marker);
+  if(idx === -1) throw new Error(`Не знайдено товар ${path} у файлі категорії`);
+
+  const { start: blockStart, end: blockEnd } = findContainerBounds(html, idx);
+  let block = html.slice(blockStart, blockEnd);
+  const priceStr = newPrice.toFixed(2);
+  const intPrice = Math.round(newPrice);
+  let count = 0;
+
+  // Новий формат карток: itemprop="price" content="..."
+  block = block.replace(/itemprop="price"\s+content="[^"]*">[^<]*/i, () => {
+    count++;
+    return `itemprop="price" content="${priceStr}">${priceStr}`;
+  });
+
+  // Старий формат карток: звичайний текст у <p class="product-price">
+  if(count === 0){
+    block = block.replace(/(class="product-price">)[\d.,\s]+(\s*грн)/i, (m, a, b) => {
+      count++;
+      return a + priceStr + b;
+    });
+  }
+
+  // addToCart(...) — price:NNNN, спільне для обох форматів
+  block = block.replace(/price\s*:\s*[0-9]+(\.[0-9]+)?/i, () => {
+    count++;
+    return `price:${intPrice}`;
+  });
+
+  if(count === 0) throw new Error('Не вдалося знайти жодного місця з ціною у картці товару');
+
+  return html.slice(0, blockStart) + block + html.slice(blockEnd);
+}
+
+function patchProductPagePrice(html, newPrice){
+  const priceStr = newPrice.toFixed(2);
+  const intPrice = Math.round(newPrice);
+  let count = 0;
+
+  html = html.replace(/(property="og:title"\s+content="[^"]*—\s*)[\d.,]+(\s*грн")/i, (m,a,b) => { count++; return a + intPrice + b; });
+  html = html.replace(/(product:price:amount"\s+content=")[\d.]+(")/i, (m,a,b) => { count++; return a + priceStr + b; });
+  html = html.replace(/("price":\s*")[\d.]+(")/i, (m,a,b) => { count++; return a + priceStr + b; });
+  html = html.replace(/(class="product-price">)[\d.,]+(\s*грн)/i, (m,a,b) => { count++; return a + priceStr + b; });
+  html = html.replace(/(price\s*:\s*)[0-9]+(\.[0-9]+)?/i, (m,a) => { count++; return a + intPrice; });
+
+  return { html, count };
+}
+
+async function saveRow(idx, explicitPrice){
+  const row = rows[idx];
+  if(row.saving) return; // вже зберігається — ігноруємо повторний клік
+
+  const newPrice = explicitPrice !== undefined
+    ? explicitPrice
+    : Number(document.querySelector(`.price-input[data-idx="${idx}"]`).value);
+
+  if(!newPrice || newPrice <= 0){ showToast('Вкажіть коректну ціну', true); return; }
+
+  row.newPrice = newPrice;
+  row.saving = true;
+  row.status = '';
+  renderTable();
+
+  try{
+    const catFile = await ghGetFile(currentCategoryFile);
+    const patchedCat = patchCategoryPrice(catFile.content, row.path, newPrice);
+    await ghPutFile(currentCategoryFile, patchedCat, `Оновити ціну: ${row.name} → ${newPrice} грн`);
+    log(`Ціну оновлено у ${currentCategoryFile}: ${row.name}`, 'ok');
+
+    const pageFile = await ghGetFile(row.path);
+    if(pageFile){
+      const { html: patchedPage, count } = patchProductPagePrice(pageFile.content, newPrice);
+      await ghPutFile(row.path, patchedPage, `Оновити ціну на сторінці товару: ${row.name} → ${newPrice} грн`);
+      log(`Оновлено ${count} місць на сторінці ${row.path}`, count > 0 ? 'ok' : 'err');
+    }else{
+      log(`Сторінку товару ${row.path} не знайдено — оновлено лише картку`, 'err');
+    }
+
+    row.price = newPrice;
+    row.status = 'ok';
+    row.errorMsg = '';
+    showToast(`Ціну оновлено: ${row.name} — ${newPrice} грн`);
+  }catch(e){
+    row.status = 'err';
+    row.errorMsg = e.message;
+    showToast('Помилка: ' + e.message, true);
+    log(`Помилка оновлення ${row.name}: ${e.message}`, 'err');
+  }finally{
+    row.saving = false;
+    renderTable();
+  }
+}
+
+async function saveAll(){
+  const dirty = [];
+  rows.forEach((r, i) => {
+    const el = document.querySelector(`.price-input[data-idx="${i}"]`);
+    const val = Number(el.value);
+    if(val && val > 0 && val !== r.price){
+      dirty.push({ i, price: val });
+      r.newPrice = val; // фіксуємо бажане значення одразу — щоб проміжні renderTable() під час циклу його не стерли
+    }
+  });
+  if(dirty.length === 0){ showToast('Немає змінених цін'); return; }
+
+  $('btnSaveAll').disabled = true;
+  let okCount = 0, errCount = 0;
+  for(const { i, price } of dirty){
+    await saveRow(i, price);
+    if(rows[i].status === 'ok') okCount++; else errCount++;
+  }
+  $('btnSaveAll').disabled = false;
+
+  if(errCount === 0){
+    showToast(`Оновлено товарів: ${okCount}`);
+  }else{
+    showToast(`Оновлено: ${okCount}, з помилками: ${errCount}`, true);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('btnConnect').addEventListener('click', connect);
+  $('btnSaveAll').addEventListener('click', saveAll);
+  $('tableBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-act="save"]');
+    if(!btn) return;
+    saveRow(Number(btn.dataset.idx));
+  });
+  $('tableBody').addEventListener('input', (e) => {
+    if(!e.target.classList.contains('price-input')) return;
+    const idx = Number(e.target.dataset.idx);
+    e.target.classList.toggle('dirty', Number(e.target.value) !== rows[idx].price);
+  });
+});
+</script>
+
+</body>
+</html>
