@@ -188,19 +188,19 @@
         <h2>Мій кошик</h2>
         <button class="cart-close" onclick="toggleCart()">×</button>
     </div>
-
+    
     <!-- Список товарів -->
     <div id="cart-items"></div>
-
+    
     <!-- Загальна сума -->
   <p class="total-price">
     <span>Сума: <span id="total-price">0</span> грн</span>
     <span id="discount-message"></span>
 </p>
-
+    
     <!-- Попередження про наявність -->
     <p id="stock-warning" style="color:red; font-weight: bold;"></p>
-
+    
     <!-- Кнопки -->
     <div class="button-row">
         <a href="checkout.html" class="checkout-button">Оформити замовлення</a>
@@ -212,32 +212,84 @@
 <audio id="back-sound" src="/sounds/back.mp3" preload="auto"></audio>
 
 <style>
-  /* Відступ від фіксованої шапки тепер задає .hero-intro замість #categories */
-  .hero-intro { margin: 90px auto 20px; }
+  /* Бігуча строка під шапкою */
+  .running-ticker {
+    position: fixed;
+    top: 55px;
+    left: 0;
+    width: 100%;
+    height: 34px;
+    overflow: hidden;
+    background: transparent;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+  }
+  .running-ticker__track {
+    display: flex;
+    white-space: nowrap;
+    animation: ticker-scroll 48s linear infinite;
+  }
+  .running-ticker__track span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 36px;
+    color: #fff;
+    font-size: 0.85em;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.6);
+  }
+  @keyframes ticker-scroll {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .running-ticker__track { animation: none; }
+  }
+
+  /* Відступ від фіксованої шапки тепер задає .hero-intro замість #categories,
+     плюс висота бігучої строки (34px) */
+  .hero-intro { margin: 114px auto 20px; }
   #categories { padding-top: 20px !important; }
 
   @media (max-width: 900px) and (orientation: landscape) {
-    .hero-intro { margin-top: 70px; }
+    .hero-intro { margin-top: 114px; }
     #categories { padding-top: 15px !important; }
   }
   @media (max-width: 768px) {
-    .hero-intro { margin-top: 90px; }
+    .hero-intro { margin-top: 124px; }
     #categories { padding-top: 15px !important; }
+    .running-ticker { top: 55px; }
   }
   @media (max-width: 1024px) and (orientation: portrait) {
-    .hero-intro { margin-top: 90px; }
+    .hero-intro { margin-top: 124px; }
     #categories { padding-top: 15px !important; }
   }
   @media (max-width: 1024px) and (orientation: landscape) {
-    .hero-intro { margin-top: 75px; }
+    .hero-intro { margin-top: 109px; }
     #categories { padding-top: 15px !important; }
   }
 </style>
 
+<div class="running-ticker" aria-hidden="true">
+    <div class="running-ticker__track">
+        <span>📞 (093) 501-60-40 — консультація та підбір обладнання</span>
+        <span>🚚 Доставка по всій Україні</span>
+        <span>🛡️ Гарантія від продавця на всі товари</span>
+        <span>🔧 Професійний монтаж у Харкові — ПроМонтаж</span>
+        <span>📞 (093) 501-60-40 — консультація та підбір обладнання</span>
+        <span>🚚 Доставка по всій Україні</span>
+        <span>🛡️ Гарантія від продавця на всі товари</span>
+        <span>🔧 Професійний монтаж у Харкові — ПроМонтаж</span>
+    </div>
+</div>
+
 <!-- Hero-текст -->
 <div class="hero-intro" style="text-align:center; max-width:780px; padding:0 20px;">
-    <h1 style="color:#ffffff; font-size:1.0em; font-weight:700; line-height:1.35; margin:0 0 14px;">Професійний захист — доступний кожному</h1>
-    <p style="color:#bbbbbb; font-size:1.0em; line-height:1.6; margin:0;">Сучасні бездротові системи безпеки для самостійного налаштування</p>
+    <h1 style="color:#ffffff; font-size:2.1em; font-weight:700; line-height:1.35; margin:0 0 14px;">Професійний захист, який легко встановити</h1>
+    <p style="color:#bbbbbb; font-size:1.15em; line-height:1.6; margin:0;">Бездротові системи безпеки для самостійного налаштування</p>
 </div>
 
 <!-- Главная страница с категориями -->
@@ -254,7 +306,7 @@
         <img src="images/outdoor_4G_1.png" alt="Зовнішні 4G камери">
         <span>Зовнішні 4G камери</span>
     </a>
-
+    
     <a href="komplekty_syhnalizaciyi.html" class="category-card">
         <img src="images/alarm_1.png" alt="Комплекти сигналізації">
         <span>Комплекти сигналізації</span>
