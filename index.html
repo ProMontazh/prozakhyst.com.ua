@@ -243,9 +243,13 @@
     display: flex;
     flex: 0 0 auto;
     white-space: nowrap;
-    /* 4 однакові копії набору; зсув на -50% = рівно 2 копії => безшовний цикл */
-    animation: ticker-scroll 110s linear infinite;
+    /* рух задає скрипт нижче (transform) — щоб текст в'їжджав справа з самого
+       початку і далі йшов безшовним колом з постійною швидкістю */
     will-change: transform;
+  }
+  .running-ticker__set {
+    display: flex;
+    flex: 0 0 auto;
   }
   .running-ticker__track span {
     display: inline-flex;
@@ -256,10 +260,6 @@
     font-weight: 600;
     letter-spacing: 0.2px;
     text-shadow: 0 1px 4px rgba(0,0,0,0.85), 0 0 2px rgba(0,0,0,0.6);
-  }
-  @keyframes ticker-scroll {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
   }
   /* Анімація бігучої строки тепер завжди активна, незалежно від системної
      настройки "Зменшення руху" — це декоративний елемент, а не критична анімація */
@@ -289,24 +289,72 @@
 
 <div class="running-ticker" aria-hidden="true">
     <div class="running-ticker__track">
-        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
-        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
-        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
-        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
-        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
-        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
-        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
-        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
-        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
-        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
-        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
-        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
-        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
-        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
-        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
-        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
+        <div class="running-ticker__set">
+            <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
+            <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
+            <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
+            <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
+        </div>
     </div>
 </div>
+<script>
+/* Бігуча строка: текст в'їжджає справа з самого початку, далі йде безшовним колом */
+(function () {
+    var SPEED = 28;                       // швидкість, px/сек (менше число = повільніше)
+    var ticker = document.querySelector('.running-ticker');
+    if (!ticker) return;
+    var track = ticker.querySelector('.running-ticker__track');
+    var firstSet = track.querySelector('.running-ticker__set');
+    if (!firstSet) return;
+
+    var W = 0, S = 0, pos = 0, last = null, started = false;
+
+    function measure() {
+        W = ticker.clientWidth;
+        S = firstSet.getBoundingClientRect().width;      // ширина одного набору фраз
+        if (!S) return false;
+        // потрібно копій, щоб стрічка завжди перекривала екран: K*S >= W + S
+        var need = Math.ceil((W + S) / S) + 1;
+        while (track.children.length < need) {
+            track.appendChild(firstSet.cloneNode(true));
+        }
+        return true;
+    }
+
+    function frame(ts) {
+        if (last === null) last = ts;
+        var dt = Math.min((ts - last) / 1000, 0.1);       // захист від "стрибка" після неактивної вкладки
+        last = ts;
+        pos -= SPEED * dt;
+        if (pos <= -S) pos += S;                          // зсув рівно на період => шва не видно
+        track.style.transform = 'translate3d(' + pos + 'px,0,0)';
+        requestAnimationFrame(frame);
+    }
+
+    function start() {
+        if (started || !measure()) return;
+        started = true;
+        pos = W;                                          // старт: перша фраза за правим краєм
+        track.style.transform = 'translate3d(' + pos + 'px,0,0)';
+        requestAnimationFrame(frame);
+    }
+
+    function remeasure() {                                // зміна розміру екрана / шрифтів
+        if (!started) { start(); return; }
+        measure();
+        if (pos <= -S) pos = pos % S;
+    }
+
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(start);
+    }
+    window.addEventListener('load', function () { start(); remeasure(); });
+    window.addEventListener('resize', remeasure);
+    window.addEventListener('orientationchange', remeasure);
+    if (document.readyState !== 'loading') start();
+    else document.addEventListener('DOMContentLoaded', start);
+})();
+</script>
 
 <!-- Hero-текст -->
 <div class="hero-intro" style="text-align:center; max-width:780px; padding:0 20px;">
