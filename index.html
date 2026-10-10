@@ -212,14 +212,18 @@
 <audio id="back-sound" src="/sounds/back.mp3" preload="auto"></audio>
 
 <style>
-  /* Бігуча строка під шапкою */
+  /* Бігуча строка під шапкою.
+     Геометрія 1-в-1 як у .mobile-breadcrumbs зі style_old.css:
+     top 55px, font-size .8em, line-height 1.6, padding 4px, border-bottom 1px,
+     щоб нижня лінія не стрибала при переході на сторінки категорій/товарів */
   .running-ticker {
     position: fixed;
-    top: 50px;
+    top: 55px;
     left: 0;
     width: 100vw;
     max-width: 100vw;
-    height: 30px;
+    box-sizing: border-box;
+    height: calc(0.8rem * 1.6 + 9px);   /* = 29.48px, як у крихт */
     overflow: hidden;
     /* Той самий фон, що й у хлібних крихт на сторінках товарів */
     background: linear-gradient(to right, rgba(7, 7, 7, 0.95), rgba(148, 148, 148, 0.95));
@@ -231,13 +235,16 @@
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
   }
+  @media (max-width: 480px) {
+    /* у крихт на вузьких екранах padding 5px -> висота 31.48px */
+    .running-ticker { height: calc(0.8rem * 1.6 + 11px); }
+  }
   .running-ticker__track {
     display: flex;
     flex: 0 0 auto;
     white-space: nowrap;
-    /* padding-left: 100% — текст стартує за правим краєм і в'їжджає з самого початку */
-    padding-left: 100%;
-    animation: ticker-scroll 90s linear infinite;
+    /* 4 однакові копії набору; зсув на -50% = рівно 2 копії => безшовний цикл */
+    animation: ticker-scroll 110s linear infinite;
     will-change: transform;
   }
   .running-ticker__track span {
@@ -252,13 +259,13 @@
   }
   @keyframes ticker-scroll {
     from { transform: translateX(0); }
-    to { transform: translateX(-100%); }
+    to { transform: translateX(-50%); }
   }
   /* Анімація бігучої строки тепер завжди активна, незалежно від системної
      настройки "Зменшення руху" — це декоративний елемент, а не критична анімація */
 
   /* Відступ від фіксованої шапки тепер задає .hero-intro замість #categories,
-     плюс висота бігучої строки (34px) */
+     плюс висота бігучої строки (~29.5px) */
   .hero-intro { margin: 114px auto 20px; }
   #categories { padding-top: 20px !important; }
 
@@ -282,7 +289,19 @@
 
 <div class="running-ticker" aria-hidden="true">
     <div class="running-ticker__track">
-        <span>ВЕСЬ ТОВАР СЕРТИФІКОВАН</span>
+        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
+        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
+        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
+        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
+        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
+        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
+        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
+        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
+        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
+        <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
+        <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
+        <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
+        <span>ТІЛЬКИ СЕРТИФІКОВАНЕ ОБЛАДНАННЯ</span>
         <span>ЗНИЖКИ ПРИ ЗАМОВЛЕННІ ВІД 5000 ГРН</span>
         <span>ОФІЦІЙНА ГАРАНТІЯ НА ОБЛАДНАННЯ ДО 24 МІС</span>
         <span>БЕЗКОШТОВНА ДОСТАВКА ПРИ ЗАМОВЛЕННІ ВІД 3000 ГРН</span>
