@@ -157,6 +157,28 @@
             "brand": { "@type": "Brand", "name": "Ajax Systems" },
             "offers": { "@type": "Offer", "price": "900.00", "priceCurrency": "UAH", "availability": "https://schema.org/InStock" }
           }
+        },
+        {
+          "@type": "ListItem", "position": 7,
+          "item": {
+            "@type": "Product",
+            "name": "Ajax Button White",
+            "url": "https://xn--80anevegliy.com.ua/prystroi_keruvannia/ajax_button_white.html",
+            "image": "https://xn--80anevegliy.com.ua/images/ajax_button_white_1.png",
+            "brand": { "@type": "Brand", "name": "Ajax Systems" },
+            "offers": { "@type": "Offer", "price": "1110.00", "priceCurrency": "UAH", "availability": "https://schema.org/InStock" }
+          }
+        },
+        {
+          "@type": "ListItem", "position": 8,
+          "item": {
+            "@type": "Product",
+            "name": "Ajax Button Black",
+            "url": "https://xn--80anevegliy.com.ua/prystroi_keruvannia/ajax_button_black.html",
+            "image": "https://xn--80anevegliy.com.ua/images/ajax_button_black_1.png",
+            "brand": { "@type": "Brand", "name": "Ajax Systems" },
+            "offers": { "@type": "Offer", "price": "1110.00", "priceCurrency": "UAH", "availability": "https://schema.org/InStock" }
+          }
         }
       ]
     }
@@ -405,6 +427,53 @@
                 image:'/images/ajax_spacecontrol_black_1.png'
             })" aria-label="Додати Ajax SpaceControl Black у кошик">Додати у кошик</button>
         </article>
+
+         <!-- Product 7:  Button White -->
+        <article class="product-item" itemscope itemtype="https://schema.org/Product"
+                 onclick="openProductDetails('prystroi_keruvannia/ajax_button_white.html')">
+            <img src="/images/ajax_button_white_1.png"
+                 alt="Ajax Button White — брелок керування охороною, 1 кнопка, білий колір"
+                 loading="lazy" itemprop="image">
+            <h3 itemprop="name">Кнопка керування Ajax Button White</h3>
+            <p itemprop="description">Зв'язок до 1300 м, бездротова тривожна кнопка/смарткнопка</p>
+            <div itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+                <p class="product-price">
+                    <span itemprop="price" content="1110.00">1110.00</span>
+                    <span itemprop="priceCurrency" content="UAH">грн</span>
+                </p>
+                <link itemprop="availability" href="https://schema.org/InStock"/>
+            </div>
+            <button class="btn" onclick="addToCart(event, {
+                id:'Ajax Button White',
+                name:'Кнопка Ajax Button White',
+                price:1110,
+                image:'/images/ajax_button_white_1.png'
+            })" aria-label="Додати Ajax Button White у кошик">Додати у кошик</button>
+        </article>
+
+        <!-- Product 8: Button Black -->
+          <article class="product-item" itemscope itemtype="https://schema.org/Product"
+                 onclick="openProductDetails('prystroi_keruvannia/ajax_button_black.html')">
+            <img src="/images/ajax_button_black_1.png"
+                 alt="Ajax Button Black — брелок керування охороною, 1 кнопка, чорний колір"
+                 loading="lazy" itemprop="image">
+            <h3 itemprop="name">Кнопка керування Ajax Button Black</h3>
+            <p itemprop="description">Зв'язок до 1300 м, бездротова тривожна кнопка/смарткнопка</p>
+            <div itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+                <p class="product-price">
+                    <span itemprop="price" content="1110.00">1110.00</span>
+                    <span itemprop="priceCurrency" content="UAH">грн</span>
+                </p>
+                <link itemprop="availability" href="https://schema.org/InStock"/>
+            </div>
+            <button class="btn" onclick="addToCart(event, {
+                id:'Ajax Button Black',
+                name:'Кнопка Ajax Button Black',
+                price:1110,
+                image:'/images/ajax_button_black_1.png'
+            })" aria-label="Додати Ajax Button Black у кошик">Додати у кошик</button>
+        </article>
+
 
     </div>
 </section>
