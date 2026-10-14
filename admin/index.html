@@ -285,7 +285,8 @@ function parseArticles(html){
     return {
       name: nameEl ? nameEl.textContent.trim() : '(без назви)',
       price,
-      path: m[1]
+      path: m[1],                                   // як записано в onclick (для пошуку картки)
+      apiPath: m[1].replace(/^(\.\/|\/)+/, '')           // без ведучого / для GitHub API
     };
   }).filter(Boolean);
 }
@@ -341,7 +342,7 @@ function renderTable(){
       <td>${r.name}</td>
       <td class="price-old">${r.price.toLocaleString('uk-UA')} грн</td>
       <td><input class="price-input" type="number" min="0" step="1" value="${r.newPrice}" data-idx="${i}" ${r.saving ? 'disabled' : ''}></td>
-      <td class="path">${r.path}</td>
+      <td class="path">${r.apiPath}</td>
       <td class="status-cell ${statusClass}" title="${statusTitle}">${statusText}</td>
       <td><button class="btn btn-sm" data-act="save" data-idx="${i}" ${r.saving ? 'disabled' : ''}>Зберегти</button></td>
     `;
@@ -434,13 +435,13 @@ async function saveRow(idx, explicitPrice){
     await ghPutFile(currentCategoryFile, patchedCat, `Оновити ціну: ${row.name} → ${newPrice} грн`);
     log(`Ціну оновлено у ${currentCategoryFile}: ${row.name}`, 'ok');
 
-    const pageFile = await ghGetFile(row.path);
+    const pageFile = await ghGetFile(row.apiPath);
     if(pageFile){
       const { html: patchedPage, count } = patchProductPagePrice(pageFile.content, newPrice);
-      await ghPutFile(row.path, patchedPage, `Оновити ціну на сторінці товару: ${row.name} → ${newPrice} грн`);
-      log(`Оновлено ${count} місць на сторінці ${row.path}`, count > 0 ? 'ok' : 'err');
+      await ghPutFile(row.apiPath, patchedPage, `Оновити ціну на сторінці товару: ${row.name} → ${newPrice} грн`);
+      log(`Оновлено ${count} місць на сторінці ${row.apiPath}`, count > 0 ? 'ok' : 'err');
     }else{
-      log(`Сторінку товару ${row.path} не знайдено — оновлено лише картку`, 'err');
+      log(`Сторінку товару ${row.apiPath} не знайдено — оновлено лише картку`, 'err');
     }
 
     row.price = newPrice;
