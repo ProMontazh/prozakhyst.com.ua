@@ -179,25 +179,52 @@ async function ghRequest(method, path, body){
   });
 }
 
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// 403/429 від GitHub бувають двох видів: ліміт запитів (треба почекати) і справжня
+// відмова в доступі (проблема з токеном). Розрізняємо їх за заголовками та текстом відповіді.
 async function ghRequestWithRetry(method, path, body, attempt){
   attempt = attempt || 1;
   const res = await ghRequest(method, path, body);
-  const isRateLimited = res.status === 429 || (res.status === 403 && res.headers.get('x-ratelimit-remaining') === '0');
-  if(isRateLimited && attempt < 4){
-    const retryAfter = res.headers.get('retry-after');
-    const wait = retryAfter ? Number(retryAfter) * 1000 : 1500 * attempt;
-    log(`GitHub обмежив частоту запитів — чекаємо ${Math.round(wait/1000)} с і пробуємо ще раз`, 'info');
-    await new Promise(r => setTimeout(r, wait));
-    return ghRequestWithRetry(method, path, body, attempt + 1);
+  if(res.status !== 403 && res.status !== 429) return res;
+
+  const info = await res.clone().json().catch(() => ({}));
+  const msg = info.message || '';
+  const retryAfter = Number(res.headers.get('retry-after')) || 0;
+  const reset = Number(res.headers.get('x-ratelimit-reset')) || 0;
+  const primary = res.headers.get('x-ratelimit-remaining') === '0';
+  const secondary = res.status === 429 || retryAfter > 0 || /rate limit|abuse/i.test(msg);
+  if(!primary && !secondary) return res;            // не ліміт — це відмова в доступі, її обробить викликач
+
+  let waitMs = 60000;
+  if(retryAfter > 0) waitMs = retryAfter * 1000;
+  else if(primary && reset) waitMs = Math.max(reset * 1000 - Date.now(), 0) + 1000;
+
+  if(waitMs > 120000 || attempt >= 4){
+    const until = reset ? ' до ' + new Date(reset * 1000).toLocaleTimeString('uk-UA') : '';
+    throw new Error(`GitHub обмежив кількість запитів${until}. Зачекайте трохи й повторіть збереження.`);
   }
-  return res;
+  log(`GitHub тимчасово обмежив частоту запитів — чекаємо ${Math.ceil(waitMs / 1000)} с і повторюємо`, 'info');
+  await sleep(waitMs);
+  return ghRequestWithRetry(method, path, body, attempt + 1);
+}
+
+function authError(text){
+  const e = new Error(text);
+  e.code = 'AUTH';
+  return e;
 }
 
 async function ghGetFile(path){
   const res = await ghRequestWithRetry('GET', `${path}?ref=${BRANCH}`);
   if(res.status === 404) return null;
-  if(res.status === 401 || res.status === 403){
-    throw new Error('Токен недійсний або немає прав доступу до репозиторію — підключіться заново з новим токеном');
+  if(res.status === 401){
+    const info = await res.json().catch(() => ({}));
+    throw authError(`Токен недійсний, відкликаний або прострочений (GitHub: ${info.message || '401'}). Створіть новий токен і підключіться заново.`);
+  }
+  if(res.status === 403){
+    const info = await res.json().catch(() => ({}));
+    throw new Error(`GitHub відмовив у доступі до ${path}: ${info.message || '403'}. Перевірте, що токен має право Contents: Read and write і не прострочений.`);
   }
   if(!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   const data = await res.json();
@@ -222,7 +249,11 @@ async function ghUpdateFile(path, transform, message){
       sha: file.sha,
       branch: BRANCH
     });
-    if(res.ok) return { found: true, changed: true };
+    if(res.ok){
+      await sleep(1100);                 // пауза між записами — щоб не впиратися в ліміт GitHub
+      return { found: true, changed: true };
+    }
+    if(res.status === 401) throw authError('Токен недійсний або прострочений — підключіться заново з новим токеном.');
 
     const err = await res.json().catch(() => ({}));
     const msg = err.message || '';
@@ -478,6 +509,7 @@ async function saveRow(idx, explicitPrice){
   }catch(e){
     row.status = 'err';
     row.errorMsg = e.message;
+    if(e.code === 'AUTH'){ $('connDot').className = 'dot err'; $('connText').textContent = 'Токен недійсний'; }
     showToast('Помилка: ' + e.message, true);
     log(`Помилка оновлення ${row.name}: ${e.message}`, 'err');
   }finally{
