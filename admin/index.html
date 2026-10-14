@@ -100,7 +100,10 @@
   <div class="main">
     <div class="main-header">
       <div class="main-title" id="categoryTitle">Оберіть категорію</div>
-      <button class="btn btn-accent" id="btnSaveAll" style="display:none;">Зберегти всі зміни</button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn" id="btnFixFormat" style="display:none;" title="Повертає пропущений пробіл у записах на кшталт 1330.00грн">Виправити формат цін</button>
+        <button class="btn btn-accent" id="btnSaveAll" style="display:none;">Зберегти всі зміни</button>
+      </div>
     </div>
 
     <div id="loadingBlock" class="loading" style="display:none;">Завантаження товарів…</div>
@@ -170,6 +173,7 @@ function b64decode(str){ return decodeURIComponent(escape(atob(str))); }
 async function ghRequest(method, path, body){
   return fetch(`${API}/repos/${OWNER}/${REPO}/contents/${path}`, {
     method,
+    cache: 'no-store',   // GitHub віддає max-age=60 — без цього браузер може показати застарілий файл
     headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json' },
     body: body ? JSON.stringify(body) : undefined
   });
@@ -200,25 +204,36 @@ async function ghGetFile(path){
   return { content: b64decode(data.content.replace(/\n/g, '')), sha: data.sha };
 }
 
-async function ghPutFile(path, content, message, attempt){
-  attempt = attempt || 1;
-  const existing = await ghGetFile(path).catch(() => null);
-  const body = { message, content: b64encode(content), branch: BRANCH };
-  if(existing) body.sha = existing.sha;
-  const res = await ghRequestWithRetry('PUT', path, body);
+// Читаємо файл ОДНИМ запитом (вміст + sha), правимо вміст і пишемо з цим самим sha.
+// Якщо файл тим часом змінився (конфлікт) — читаємо заново і правимо ще раз, тож
+// попередні зміни в тому самому файлі ніколи не затираються.
+async function ghUpdateFile(path, transform, message){
+  const MAX = 6;
+  for(let attempt = 1; attempt <= MAX; attempt++){
+    const file = await ghGetFile(path);
+    if(!file) return { found: false, changed: false };
 
-  if(!res.ok){
+    const next = transform(file.content);
+    if(next === file.content) return { found: true, changed: false };
+
+    const res = await ghRequestWithRetry('PUT', path, {
+      message,
+      content: b64encode(next),
+      sha: file.sha,
+      branch: BRANCH
+    });
+    if(res.ok) return { found: true, changed: true };
+
     const err = await res.json().catch(() => ({}));
-    const errMsg = err.message || '';
-    const isShaConflict = res.status === 409 || (res.status === 422 && /does not match|sha/i.test(errMsg));
-    if(isShaConflict && attempt < 5){
-      // Sha застарів (хтось/щось встигло змінити файл між читанням і записом) — пробуємо ще раз зі свіжим sha
+    const msg = err.message || '';
+    const conflict = res.status === 409 || (res.status === 422 && /does not match|sha/i.test(msg));
+    if(conflict && attempt < MAX){
+      log(`Файл ${path} змінився під час збереження — повторюємо (${attempt}/${MAX - 1})`, 'info');
       await new Promise(r => setTimeout(r, 500 * attempt));
-      return ghPutFile(path, content, message, attempt + 1);
+      continue;
     }
-    throw new Error(errMsg || `PUT ${path} → ${res.status}`);
+    throw new Error(msg || `PUT ${path} → ${res.status}`);
   }
-  return res.json();
 }
 
 async function connect(){
@@ -297,6 +312,7 @@ async function loadCategory(cat){
   $('emptyState').style.display = 'none';
   $('productsTable').style.display = 'none';
   $('btnSaveAll').style.display = 'none';
+  $('btnFixFormat').style.display = 'none';
   $('loadingBlock').style.display = 'block';
 
   try{
@@ -330,6 +346,7 @@ function renderTable(){
   $('emptyState').style.display = 'none';
   $('productsTable').style.display = 'table';
   $('btnSaveAll').style.display = 'inline-block';
+  $('btnFixFormat').style.display = 'inline-block';
 
   const tbody = $('tableBody');
   tbody.innerHTML = '';
@@ -383,9 +400,9 @@ function patchCategoryPrice(html, path, newPrice){
 
   // Старий формат карток: звичайний текст у <p class="product-price">
   if(count === 0){
-    block = block.replace(/(class="product-price">)[\d.,\s]+(\s*грн)/i, (m, a, b) => {
+    block = block.replace(/(class="product-price">\s*)\d[\d\s.,]*?\s*грн/i, (m, a) => {
       count++;
-      return a + priceStr + b;
+      return a + priceStr + ' грн';
     });
   }
 
@@ -408,7 +425,7 @@ function patchProductPagePrice(html, newPrice){
   html = html.replace(/(property="og:title"\s+content="[^"]*—\s*)[\d.,]+(\s*грн")/i, (m,a,b) => { count++; return a + intPrice + b; });
   html = html.replace(/(product:price:amount"\s+content=")[\d.]+(")/i, (m,a,b) => { count++; return a + priceStr + b; });
   html = html.replace(/("price":\s*")[\d.]+(")/i, (m,a,b) => { count++; return a + priceStr + b; });
-  html = html.replace(/(class="product-price">)[\d.,]+(\s*грн)/i, (m,a,b) => { count++; return a + priceStr + b; });
+  html = html.replace(/(class="product-price">\s*)\d[\d\s.,]*?\s*грн/i, (m,a) => { count++; return a + priceStr + ' грн'; });
   html = html.replace(/(price\s*:\s*)[0-9]+(\.[0-9]+)?/i, (m,a) => { count++; return a + intPrice; });
 
   return { html, count };
@@ -430,16 +447,26 @@ async function saveRow(idx, explicitPrice){
   renderTable();
 
   try{
-    const catFile = await ghGetFile(currentCategoryFile);
-    const patchedCat = patchCategoryPrice(catFile.content, row.path, newPrice);
-    await ghPutFile(currentCategoryFile, patchedCat, `Оновити ціну: ${row.name} → ${newPrice} грн`);
-    log(`Ціну оновлено у ${currentCategoryFile}: ${row.name}`, 'ok');
+    const catRes = await ghUpdateFile(
+      currentCategoryFile,
+      html => patchCategoryPrice(html, row.path, newPrice),
+      `Оновити ціну: ${row.name} → ${newPrice} грн`
+    );
+    if(!catRes.found) throw new Error(`Файл ${currentCategoryFile} не знайдено в репозиторії`);
+    log(catRes.changed
+      ? `Ціну оновлено у ${currentCategoryFile}: ${row.name}`
+      : `У ${currentCategoryFile} ціна вже ${newPrice} грн — без змін`, 'ok');
 
-    const pageFile = await ghGetFile(row.apiPath);
-    if(pageFile){
-      const { html: patchedPage, count } = patchProductPagePrice(pageFile.content, newPrice);
-      await ghPutFile(row.apiPath, patchedPage, `Оновити ціну на сторінці товару: ${row.name} → ${newPrice} грн`);
-      log(`Оновлено ${count} місць на сторінці ${row.apiPath}`, count > 0 ? 'ok' : 'err');
+    let count = 0;
+    const pageRes = await ghUpdateFile(
+      row.apiPath,
+      html => { const r = patchProductPagePrice(html, newPrice); count = r.count; return r.html; },
+      `Оновити ціну на сторінці товару: ${row.name} → ${newPrice} грн`
+    );
+    if(pageRes.found){
+      log(pageRes.changed
+        ? `Оновлено ${count} місць на сторінці ${row.apiPath}`
+        : `На сторінці ${row.apiPath} ціна вже ${newPrice} грн — без змін`, count > 0 ? 'ok' : 'err');
     }else{
       log(`Сторінку товару ${row.apiPath} не знайдено — оновлено лише картку`, 'err');
     }
@@ -456,6 +483,40 @@ async function saveRow(idx, explicitPrice){
   }finally{
     row.saving = false;
     renderTable();
+  }
+}
+
+async function fixPriceFormat(){
+  if(!currentCategoryFile) return;
+  const file = currentCategoryFile;
+  $('btnFixFormat').disabled = true;
+  try{
+    let fixed = 0;
+    const res = await ghUpdateFile(
+      file,
+      html => {
+        fixed = 0;
+        return html.replace(/(class="product-price">\s*)(\d[\d.,]*)\s*грн/gi, (m, a, num) => {
+          const out = a + num + ' грн';
+          if(out !== m) fixed++;
+          return out;
+        });
+      },
+      `Виправити формат цін (пробіл перед «грн») у ${file}`
+    );
+    if(!res.found) throw new Error(`Файл ${file} не знайдено`);
+    if(res.changed){
+      log(`Виправлено формат цін у ${file}: ${fixed}`, 'ok');
+      showToast(`Виправлено цін: ${fixed}`);
+    }else{
+      log(`У ${file} усі ціни вже у правильному форматі`, 'info');
+      showToast('Усі ціни вже у правильному форматі');
+    }
+  }catch(e){
+    showToast('Помилка: ' + e.message, true);
+    log('Помилка виправлення формату: ' + e.message, 'err');
+  }finally{
+    $('btnFixFormat').disabled = false;
   }
 }
 
@@ -489,6 +550,7 @@ async function saveAll(){
 document.addEventListener('DOMContentLoaded', () => {
   $('btnConnect').addEventListener('click', connect);
   $('btnSaveAll').addEventListener('click', saveAll);
+  $('btnFixFormat').addEventListener('click', fixPriceFormat);
   $('tableBody').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-act="save"]');
     if(!btn) return;
