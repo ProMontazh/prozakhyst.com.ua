@@ -77,6 +77,49 @@
   .toast{position:fixed; bottom:20px; right:20px; background:var(--surface-2); border:1px solid var(--border); padding:10px 16px; border-radius:var(--radius); font-size:13px; z-index:80; max-width:380px; opacity:0; transform:translateY(8px); transition:all .2s ease; pointer-events:none;}
   .toast.show{opacity:1; transform:translateY(0);}
   .toast.err{border-color:var(--warn); color:var(--warn);}
+
+  /* ===== Мобільна адаптація ===== */
+  @media (max-width:768px){
+    body{font-size:15px;}
+
+    .topbar{padding:12px 14px; gap:10px;}
+    .topbar > div:first-child{display:flex; flex-direction:column;}
+    .brand-sub{margin-left:0; font-size:12px;}
+    .conn-status{padding:6px 0;}
+
+    .connect-bar{padding:12px 14px; max-height:260px;}
+    .repo-info{flex:1 1 100%; margin-right:0;}
+    .connect-bar input{flex:1 1 100%; width:100%; padding:11px 10px; font-size:16px;} /* 16px — щоб iOS не наближав сторінку при фокусі */
+    .connect-bar .btn{flex:1 1 100%; padding:12px;}
+
+    .layout{grid-template-columns:1fr; min-height:0;}
+    .sidebar{display:flex; gap:8px; overflow-x:auto; -webkit-overflow-scrolling:touch; padding:10px 12px; border-right:0; border-bottom:1px solid var(--border);}
+    .cat-item{flex:0 0 auto; white-space:nowrap; margin-bottom:0; padding:9px 13px; border:1px solid var(--border);}
+    .cat-item.active{border-color:var(--accent); padding-left:13px;}
+
+    .main{padding:14px;}
+    .main-header{flex-direction:column; align-items:stretch; gap:10px;}
+    .main-header > div:last-child{flex-direction:column;}
+    .main-header .btn{padding:12px;}
+
+    /* Таблиця → картки */
+    table, tbody, tr, td{display:block;}
+    thead{display:none;}
+    tbody tr{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px; margin-bottom:10px;}
+    tbody tr:hover{background:var(--surface);}
+    tbody td{display:flex; justify-content:space-between; align-items:center; gap:12px; padding:6px 0; border-bottom:0;}
+    tbody td[data-label]::before{content:attr(data-label); flex:0 0 auto; color:var(--text-faint); font-size:11.5px;}
+    td.name-cell{display:block; font-weight:600; padding-bottom:10px; margin-bottom:4px; border-bottom:1px solid var(--border);}
+    td.action-cell{padding-top:10px;}
+    td.action-cell .btn{width:100%; padding:11px;}
+    .price-input{width:140px; padding:9px 10px; font-size:16px;}
+    .path{text-align:right; word-break:break-all;}
+    .status-cell:empty{display:none;}
+
+    .lockscreen, .empty-state, .loading{padding:40px 16px;}
+    .log-entry{word-break:break-word;}
+    .toast{left:12px; right:12px; bottom:12px; max-width:none;}
+  }
 </style>
 </head>
 <body>
@@ -391,13 +434,14 @@ function renderTable(){
     const statusClass = r.status === 'ok' ? 'status-ok' : r.status === 'err' ? 'status-err' : 'status-pending';
     const statusText = r.saving ? '⏳ Збереження…' : r.status === 'ok' ? '✓ Збережено' : r.status === 'err' ? '✗ Помилка' : '';
     const statusTitle = r.status === 'err' && r.errorMsg ? escapeAttr(r.errorMsg) : '';
+    // data-label потрібен для мобільної верстки (таблиця перетворюється на картки)
     tr.innerHTML = `
-      <td>${r.name}</td>
-      <td class="price-old">${r.price.toLocaleString('uk-UA')} грн</td>
-      <td><input class="price-input" type="number" min="0" step="1" value="${r.newPrice}" data-idx="${i}" ${r.saving ? 'disabled' : ''}></td>
-      <td class="path">${r.apiPath}</td>
-      <td class="status-cell ${statusClass}" title="${statusTitle}">${statusText}</td>
-      <td><button class="btn btn-sm" data-act="save" data-idx="${i}" ${r.saving ? 'disabled' : ''}>Зберегти</button></td>
+      <td class="name-cell">${r.name}</td>
+      <td class="price-old" data-label="Поточна ціна">${r.price.toLocaleString('uk-UA')} грн</td>
+      <td data-label="Нова ціна"><input class="price-input" type="number" inputmode="decimal" min="0" step="1" value="${r.newPrice}" data-idx="${i}" ${r.saving ? 'disabled' : ''}></td>
+      <td class="path" data-label="Файл">${r.apiPath}</td>
+      <td class="status-cell ${statusClass}" data-label="Статус" title="${statusTitle}">${statusText}</td>
+      <td class="action-cell"><button class="btn btn-sm" data-act="save" data-idx="${i}" ${r.saving ? 'disabled' : ''}>Зберегти</button></td>
     `;
     tbody.appendChild(tr);
   });
