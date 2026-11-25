@@ -97,9 +97,13 @@
     .cat-item{flex:0 0 auto; white-space:nowrap; margin-bottom:0; padding:9px 13px; border:1px solid var(--border);}
     .cat-item.active{border-color:var(--accent); padding-left:13px;}
 
-    .main{padding:14px;}
-    .main-header{flex-direction:column; align-items:stretch; gap:10px;}
-    .main-header > div:last-child{flex-direction:column;}
+    /* Кнопки «Зберегти всі зміни» та «Виправити формат» — під переліком товарів */
+    .main{padding:14px; display:flex; flex-direction:column;}
+    .main-header{display:contents;}
+    .main-title{order:0; margin-bottom:12px;}
+    #loadingBlock, #emptyState, #productsTable{order:1;}
+    .main-header > div:last-child{order:2; flex-direction:column; margin-top:6px;}
+    .log-panel{order:3;}
     .main-header .btn{padding:12px;}
 
     /* Таблиця → картки */
